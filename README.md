@@ -89,10 +89,6 @@ systemctl status healthcheck.timer
 
 ---
 
-## Project Plan
-
-**Scope (v1, locked):** SSH hardening + firewall, Docker + Compose deployment, systemd healthcheck timer, automatic security updates. Monitoring stack, fail2ban, backups, and CI are deliberately deferred to the roadmap.
-
 **Repo structure:**
 ```
 linux-server-bootstrap/
@@ -108,46 +104,3 @@ linux-server-bootstrap/
 │   └── healthcheck.sh
 └── docker-compose.yml
 ```
-
-**Step 1 — Learn the basics**
-- Bash strict mode: http://redsymbol.net/articles/unofficial-bash-strict-mode/
-- Google Shell Style Guide: https://google.github.io/styleguide/shellguide.html
-- Initial Server Setup with Ubuntu: https://www.digitalocean.com/community/tutorials/initial-server-setup-with-ubuntu-22-04
-- UFW Essentials: https://www.digitalocean.com/community/tutorials/ufw-essentials-common-firewall-rules-and-commands
-- What is systemd?: https://www.digitalocean.com/community/tutorials/what-is-systemd
-- Systemd Essentials: https://www.digitalocean.com/community/tutorials/systemd-essentials-working-with-services-units-and-the-journal
-- Understanding Systemd Units and Unit Files: https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files
-- systemd.timer / systemd.service man pages: https://www.freedesktop.org/software/systemd/man/systemd.timer.html
-- Docker Get Started: https://docs.docker.com/get-started/
-- Docker Compose overview: https://docs.docker.com/compose/
-- Ubuntu unattended-upgrades docs: https://ubuntu.com/server/docs/security-automatic-updates
-
-**Step 2 — Harden the server**
-- SSH hardening: disable root login + password auth, optional custom port
-- Firewall: default deny incoming, allow SSH/HTTP/HTTPS
-- Checkpoint: SSH key login works, root/password login fails, `ufw status verbose` shows exactly the expected ports
-
-**Step 3 — Docker + self-healing**
-- Install Docker + Compose, deploy a sample service
-- Write a healthcheck script + systemd service/timer pair to restart it if it goes down
-- Checkpoint: killing the container manually results in it being back up within one timer interval
-
-**Step 4 — Auto-updates, polish, demo**
-- Confirm/enable `unattended-upgrades` for security-only patches
-- Full clean run on a fresh VM, then a second run to prove idempotency
-- Record a terminal demo, push to GitHub
-
-**Troubleshooting notes**
-- Always test SSH hardening changes in a second terminal session before closing the first — a bad `sshd_config` can lock you out.
-- Ubuntu cloud images use `Include /etc/ssh/sshd_config.d/*.conf` in `sshd_config` — settings there override the main file. If a setting doesn't seem to apply, check there first (e.g. `50-cloud-init.conf` often sets `PasswordAuthentication yes`).
-- Cloud VM providers often have a separate network-level firewall; `ufw` alone won't open ports blocked at that layer.
-- After adding a user to the `docker` group, that user must log out/in (or run `newgrp docker`) before it takes effect.
-- After editing any unit file, run `systemctl daemon-reload` or systemd will keep using the cached version.
-- Docker `ports:` mapping syntax is `"host_port:container_port"` — a single number with no colon lets Docker pick a random host port instead.
-
-**Roadmap**
-- Automate SSH key installation before disabling password auth
-- fail2ban for brute-force protection
-- Prometheus + node_exporter for metrics
-- Automated backup/restore with a documented recovery procedure
-- Vagrantfile + GitHub Actions CI to test the script on every push
