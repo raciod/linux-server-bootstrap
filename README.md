@@ -43,6 +43,10 @@ docker compose ps
 systemctl status healthcheck.timer
 ```
 
+### Known limitations
+* SSH key installation is not automated — the script assumes a key is already authorized on the server before it disables password login. `SSH_KEY_PATH` in `config.env` is a placeholder for a future version that would handle this automatically.
+* `healthcheck.service` currently hardcodes the `deploy` user's home directory. If you change `NEW_USER` in `config.env`, update the paths in `systemd/healthcheck.service` to match.
+
 ---
 
 ## Français
@@ -93,62 +97,56 @@ systemctl status healthcheck.timer
 ```
 linux-server-bootstrap/
 ├── README.md
+├── LICENSE
 ├── bootstrap.sh
 ├── config.env.example
+├── .gitignore
 ├── systemd/
 │   ├── healthcheck.service
 │   └── healthcheck.timer
 ├── scripts/
 │   └── healthcheck.sh
-├── docker-compose.yml
-└── docs/
-    └── demo.gif
+└── docker-compose.yml
 ```
 
 **Step 1 — Learn the basics**
-Work through these on a throwaway VM before writing code. No time pressure — go at your own pace.
 - Bash strict mode: http://redsymbol.net/articles/unofficial-bash-strict-mode/
 - Google Shell Style Guide: https://google.github.io/styleguide/shellguide.html
 - Initial Server Setup with Ubuntu: https://www.digitalocean.com/community/tutorials/initial-server-setup-with-ubuntu-22-04
 - UFW Essentials: https://www.digitalocean.com/community/tutorials/ufw-essentials-common-firewall-rules-and-commands
 - What is systemd?: https://www.digitalocean.com/community/tutorials/what-is-systemd
-- Systemd Essentials (services/journal): https://www.digitalocean.com/community/tutorials/systemd-essentials-working-with-services-units-and-the-journal
+- Systemd Essentials: https://www.digitalocean.com/community/tutorials/systemd-essentials-working-with-services-units-and-the-journal
 - Understanding Systemd Units and Unit Files: https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files
 - systemd.timer / systemd.service man pages: https://www.freedesktop.org/software/systemd/man/systemd.timer.html
 - Docker Get Started: https://docs.docker.com/get-started/
 - Docker Compose overview: https://docs.docker.com/compose/
 - Ubuntu unattended-upgrades docs: https://ubuntu.com/server/docs/security-automatic-updates
-- Checkpoint: explain the difference between a `.service` and a `.timer`, and what `ufw default deny incoming` does.
 
 **Step 2 — Harden the server**
-- Script skeleton: `set -euo pipefail`, `log()` function, `--dry-run` flag, `source config.env`
-- `harden_ssh()`: back up `sshd_config`, disable root login + password auth, optional custom port, restart `sshd` only if changed
-- `setup_firewall()`: check existing `ufw` rules before adding, default deny incoming, allow SSH/HTTP/HTTPS
-- Test on throwaway VM; run twice to confirm idempotency
+- SSH hardening: disable root login + password auth, optional custom port
+- Firewall: default deny incoming, allow SSH/HTTP/HTTPS
 - Checkpoint: SSH key login works, root/password login fails, `ufw status verbose` shows exactly the expected ports
 
 **Step 3 — Docker + self-healing**
-- `install_docker()`: skip if already installed, add user to `docker` group, install Compose plugin
-- Write `docker-compose.yml` (sample Nginx service, or one of your own past socket-based projects)
-- Write `scripts/healthcheck.sh`: inspect container health, restart if down, log the event, always exit 0
-- Write `systemd/healthcheck.service` (`Type=oneshot`) and `systemd/healthcheck.timer` (`OnBootSec=2min`, `OnUnitActiveSec=5min`)
-- `setup_healthcheck_timer()`: copy units, `systemctl daemon-reload`, `enable --now`
-- Checkpoint: killing the container manually results in it being back up within one timer interval, visible in `journalctl -u healthcheck.service`
+- Install Docker + Compose, deploy a sample service
+- Write a healthcheck script + systemd service/timer pair to restart it if it goes down
+- Checkpoint: killing the container manually results in it being back up within one timer interval
 
 **Step 4 — Auto-updates, polish, demo**
-- `setup_auto_updates()`: install and configure `unattended-upgrades` for security-only patches
-- Finalize `config.env.example` with comments for every variable
-- Full clean run on a brand-new VM snapshot, then a second run to prove idempotency
-- Record a terminal demo (asciinema or GIF): fresh VM → run script → verify firewall/Docker → kill container → watch it self-heal
-- Push to GitHub with topics: `bash`, `sysadmin`, `docker`, `systemd`, `devops`, `linux`
+- Confirm/enable `unattended-upgrades` for security-only patches
+- Full clean run on a fresh VM, then a second run to prove idempotency
+- Record a terminal demo, push to GitHub
 
 **Troubleshooting notes**
 - Always test SSH hardening changes in a second terminal session before closing the first — a bad `sshd_config` can lock you out.
+- Ubuntu cloud images use `Include /etc/ssh/sshd_config.d/*.conf` in `sshd_config` — settings there override the main file. If a setting doesn't seem to apply, check there first (e.g. `50-cloud-init.conf` often sets `PasswordAuthentication yes`).
 - Cloud VM providers often have a separate network-level firewall; `ufw` alone won't open ports blocked at that layer.
 - After adding a user to the `docker` group, that user must log out/in (or run `newgrp docker`) before it takes effect.
 - After editing any unit file, run `systemctl daemon-reload` or systemd will keep using the cached version.
+- Docker `ports:` mapping syntax is `"host_port:container_port"` — a single number with no colon lets Docker pick a random host port instead.
 
 **Roadmap**
+- Automate SSH key installation before disabling password auth
 - fail2ban for brute-force protection
 - Prometheus + node_exporter for metrics
 - Automated backup/restore with a documented recovery procedure

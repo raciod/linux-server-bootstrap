@@ -1,0 +1,7 @@
+[Unit]
+Description=run healthcheck docker
+
+[Service]
+Type=oneshot
+ExecStart=/home/deploy/healthcheck.sh
+WorkingDirectory=/home/deploy
